@@ -11,4 +11,4 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 input-linux = "0.7"
 qrcode = { version = "0.14", default-features = false }
 sha1 = "0.10"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util", "signal"] }

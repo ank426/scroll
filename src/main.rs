@@ -143,18 +143,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let ui = Arc::new(Mutex::new(create_uinput()?));
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await?;
     loop {
-        let (stream, _) = listener.accept().await?;
-        stream.set_nodelay(true)?;
-        let ui = ui.clone();
-        tokio::spawn(async move {
-            if let Err(e) = http1::Builder::new()
-                .serve_connection(TokioIo::new(stream), service_fn(move |req| handle(req, ui.clone())))
-                .with_upgrades()
-                .await
-                && !e.is_incomplete_message()
-            {
-                eprintln!("http error: {e}");
+        tokio::select! {
+            Ok((stream, _)) = listener.accept() => {
+                stream.set_nodelay(true)?;
+                let ui = ui.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = http1::Builder::new()
+                        .serve_connection(TokioIo::new(stream), service_fn(move |req| handle(req, ui.clone())))
+                        .with_upgrades()
+                        .await
+                        && !e.is_incomplete_message()
+                    {
+                        eprintln!("http error: {e}");
+                    }
+                });
             }
-        });
+            _ = tokio::signal::ctrl_c() => break,
+        }
     }
+    Ok(())
 }
