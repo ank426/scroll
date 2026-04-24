@@ -139,7 +139,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if args.iter().any(|a| a == "-q" || a == "--qr") {
         print_qr(&url)?;
     }
-    println!("Listening on {url}");
+    println!("listening on {url}");
     let ui = Arc::new(Mutex::new(create_uinput()?));
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await?;
     loop {
