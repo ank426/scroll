@@ -124,6 +124,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Listening on http://{}:{port}", local_ip());
     loop {
         let (stream, _) = listener.accept().await?;
+        stream.set_nodelay(true)?;
         let ui = ui.clone();
         tokio::spawn(async move {
             if let Err(e) = http1::Builder::new()
