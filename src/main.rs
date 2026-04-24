@@ -14,6 +14,8 @@ use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
 use input_linux::sys::{input_event, timeval};
 use input_linux::{EventKind, InputId, Key, RelativeAxis, UInputHandle};
+use qrcode::QrCode;
+use qrcode::render::unicode::Dense1x2;
 use sha1::{Digest, Sha1};
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio::net::TcpListener;
@@ -23,6 +25,19 @@ fn local_ip() -> String {
         .and_then(|s| s.connect("8.8.8.8:80").and_then(|_| s.local_addr()))
         .map(|a| a.ip().to_string())
         .unwrap_or_else(|_| "localhost".into())
+}
+
+fn print_qr(url: &str) -> Result<(), Box<dyn Error>> {
+    let qr = QrCode::new(url)?
+        .render::<Dense1x2>()
+        .dark_color(Dense1x2::Light)
+        .light_color(Dense1x2::Dark)
+        .quiet_zone(false)
+        .build();
+    for line in qr.lines() {
+        println!("    {line}");
+    }
+    Ok(())
 }
 
 fn create_uinput() -> io::Result<UInputHandle<File>> {
@@ -118,10 +133,15 @@ async fn handle(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let port = env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(12687);
+    let args: Vec<String> = env::args().skip(1).collect();
+    let port = args.iter().find_map(|a| a.parse().ok()).unwrap_or(12687);
+    let url = format!("http://{}:{port}", local_ip());
+    if args.iter().any(|a| a == "-q" || a == "--qr") {
+        print_qr(&url)?;
+    }
+    println!("Listening on {url}");
     let ui = Arc::new(Mutex::new(create_uinput()?));
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await?;
-    println!("Listening on http://{}:{port}", local_ip());
     loop {
         let (stream, _) = listener.accept().await?;
         stream.set_nodelay(true)?;
