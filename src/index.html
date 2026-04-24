@@ -4,9 +4,26 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <style>
-        body { display: grid; place-items: center; min-height: 100dvh; margin: 0; background: black; user-select: none }
-        #st { color: white; font-size: 20dvw }
-        #fs { all: unset; position: fixed; top: 3dvw; right: 3dvw; color: white; font-size: 5dvw }
+        body {
+            display: grid;
+            place-items: center;
+            min-height: 100dvh;
+            margin: 0;
+            background: black;
+            color: white;
+            user-select: none;
+            touch-action: none;
+        }
+        #st {
+            font-size: 20dvw;
+        }
+        #fs {
+            all: unset;
+            position: fixed;
+            top: 3dvw;
+            right: 3dvw;
+            font-size: 5dvw;
+        }
     </style>
 </head>
 <body>
@@ -32,14 +49,13 @@
         });
 
         document.addEventListener("touchmove", e => {
-            e.preventDefault();
             if (e.touches.length !== 1 || ws.readyState !== 1) return;
             pending += e.touches[0].clientY - lastY;
             lastY = e.touches[0].clientY;
             if (ws.bufferedAmount > 0) return;
             ws.send(new Float32Array([pending]).buffer);
             pending = 0;
-        }, {passive: false});
+        });
 
         document.addEventListener("touchend", () => lastY = null);
     </script>
