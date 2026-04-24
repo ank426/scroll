@@ -20,13 +20,13 @@
         let ws;
         function connect() {
             ws = new WebSocket("ws://" + location.host + "/ws");
-            ws.onopen = () => { st.innerText = "" };
+            ws.onopen = () => st.innerText = "";
             ws.onclose = () => { st.innerText = "⚠"; setTimeout(connect, 1000) };
             ws.onerror = () => ws.close();
         }
         connect();
 
-        let lastY = null, pending = 0;
+        let lastY = null;
         const buf = new Float32Array(1);
 
         document.addEventListener("touchstart", e => {
@@ -35,18 +35,13 @@
 
         document.addEventListener("touchmove", e => {
             e.preventDefault();
-            if (lastY !== null && e.touches.length === 1 && ws.readyState === 1) {
-                pending += e.touches[0].clientY - lastY;
-                lastY = e.touches[0].clientY;
-                if (ws.bufferedAmount === 0) {
-                    buf[0] = pending;
-                    pending = 0;
-                    ws.send(buf.buffer);
-                }
-            }
+            if (e.touches.length !== 1 || ws.readyState !== 1 || ws.bufferedAmount > 0) return;
+            buf[0] = e.touches[0].clientY - lastY;
+            lastY = e.touches[0].clientY;
+            ws.send(buf.buffer);
         }, {passive: false});
 
-        document.addEventListener("touchend", () => { lastY = null; pending = 0 });
+        document.addEventListener("touchend", () => lastY = null);
     </script>
 </body>
 </html>
