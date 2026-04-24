@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs::{File, OpenOptions};
-use std::net::SocketAddr;
+use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::{env, io};
 
@@ -17,6 +17,13 @@ use input_linux::{EventKind, InputId, Key, RelativeAxis, UInputHandle};
 use sha1::{Digest, Sha1};
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio::net::TcpListener;
+
+fn local_ip() -> String {
+    UdpSocket::bind("0.0.0.0:0")
+        .and_then(|s| s.connect("8.8.8.8:80").and_then(|_| s.local_addr()))
+        .map(|a| a.ip().to_string())
+        .unwrap_or_else(|_| "localhost".into())
+}
 
 fn create_uinput() -> io::Result<UInputHandle<File>> {
     let ui = UInputHandle::new(OpenOptions::new().write(true).open("/dev/uinput")?);
@@ -114,7 +121,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let port = env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(12687);
     let ui = Arc::new(Mutex::new(create_uinput()?));
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await?;
-    println!("Listening on http://localhost:{port}");
+    println!("Listening on http://{}:{port}", local_ip());
     loop {
         let (stream, _) = listener.accept().await?;
         let ui = ui.clone();
