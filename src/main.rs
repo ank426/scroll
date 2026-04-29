@@ -1,10 +1,11 @@
 use std::error::Error;
 use std::fs::{File, OpenOptions};
+use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
-use std::{env, io};
 
 use base64::prelude::*;
+use clap::Parser;
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
 use hyper::header::{CONNECTION, UPGRADE};
@@ -131,17 +132,26 @@ async fn handle(
     }
 }
 
+#[derive(Parser)]
+#[command(about = "Use your phone to scroll")]
+struct Args {
+    #[arg(short, long, default_value_t = 12687)]
+    port: u16,
+
+    #[arg(short, long, num_args = 0..=1, default_missing_value = "true", default_value_t = false)]
+    qr: bool,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = env::args().skip(1).collect();
-    let port = args.iter().find_map(|a| a.parse().ok()).unwrap_or(12687);
-    let url = format!("http://{}:{port}", local_ip());
-    if args.iter().any(|a| a == "-q" || a == "--qr") {
+    let args = Args::parse();
+    let url = format!("http://{}:{}", local_ip(), args.port);
+    if args.qr {
         print_qr(&url)?;
     }
     println!("listening on {url}");
     let ui = Arc::new(Mutex::new(create_uinput()?));
-    let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await?;
+    let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], args.port))).await?;
     loop {
         tokio::select! {
             Ok((stream, _)) = listener.accept() => {
