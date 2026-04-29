@@ -168,13 +168,18 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let url = format!("http://{}:{}", local_ip(args.iface.as_deref()), args.port);
+    let ip = local_ip(args.iface.as_deref());
+    let url = format!("http://{ip}:{}", args.port);
     if args.qr {
         print_qr(&url)?;
     }
-    println!("listening on {url}");
     let ui = Arc::new(Mutex::new(create_uinput()?));
-    let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], args.port))).await?;
+    let bind_ip: std::net::IpAddr = match args.iface {
+        Some(_) => ip.parse().unwrap(),
+        None => [0, 0, 0, 0].into(),
+    };
+    let listener = TcpListener::bind(SocketAddr::new(bind_ip, args.port)).await?;
+    println!("listening on {url}");
     loop {
         tokio::select! {
             Ok((stream, _)) = listener.accept() => {
