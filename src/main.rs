@@ -65,7 +65,11 @@ fn emit_scroll(ui: &UInputHandle<File>, ticks: i32) -> io::Result<()> {
     Ok(())
 }
 
-async fn ws_loop(upgraded: hyper::upgrade::Upgraded, ui: Arc<Mutex<UInputHandle<File>>>) -> io::Result<()> {
+async fn ws_loop(
+    upgraded: hyper::upgrade::Upgraded,
+    ui: Arc<Mutex<UInputHandle<File>>>,
+    sensitivity: f32,
+) -> io::Result<()> {
     let mut stream = BufReader::new(TokioIo::new(upgraded));
     let mut acc = 0.0;
     let mut buf = [0u8; 2 + 4 + 4]; // header + mask key + f32 payload
@@ -83,7 +87,7 @@ async fn ws_loop(upgraded: hyper::upgrade::Upgraded, ui: Arc<Mutex<UInputHandle<
             buf[6 + i] ^= buf[2 + i]
         }
 
-        acc += 6.0 * f32::from_le_bytes(buf[6..10].try_into().unwrap());
+        acc += sensitivity * f32::from_le_bytes(buf[6..10].try_into().unwrap());
         let ticks = acc as i32;
         if ticks != 0 {
             let ui = ui.lock().unwrap();
@@ -97,6 +101,7 @@ async fn ws_loop(upgraded: hyper::upgrade::Upgraded, ui: Arc<Mutex<UInputHandle<
 async fn handle(
     req: Request<Incoming>,
     ui: Arc<Mutex<UInputHandle<File>>>,
+    sensitivity: f32,
 ) -> Result<Response<Full<Bytes>>, hyper::Error> {
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/") => Ok(Response::builder()
@@ -112,7 +117,7 @@ async fn handle(
             let accept = BASE64_STANDARD.encode(sha1.finalize());
 
             tokio::spawn(async move {
-                if let Err(e) = ws_loop(hyper::upgrade::on(req).await.unwrap(), ui).await
+                if let Err(e) = ws_loop(hyper::upgrade::on(req).await.unwrap(), ui, sensitivity).await
                     && e.kind() != io::ErrorKind::UnexpectedEof
                 {
                     eprintln!("ws error: {e}");
@@ -140,6 +145,9 @@ struct Args {
 
     #[arg(short, long, num_args = 0..=1, default_missing_value = "true", default_value_t = false)]
     qr: bool,
+
+    #[arg(short, long, default_value_t = 6.0)]
+    sensitivity: f32,
 }
 
 #[tokio::main]
@@ -157,9 +165,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Ok((stream, _)) = listener.accept() => {
                 stream.set_nodelay(true)?;
                 let ui = ui.clone();
+                let sensitivity = args.sensitivity;
                 tokio::spawn(async move {
                     if let Err(e) = http1::Builder::new()
-                        .serve_connection(TokioIo::new(stream), service_fn(move |req| handle(req, ui.clone())))
+                        .serve_connection(TokioIo::new(stream), service_fn(move |req| handle(req, ui.clone(), sensitivity)))
                         .with_upgrades()
                         .await
                         && !e.is_incomplete_message()
