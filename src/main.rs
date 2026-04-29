@@ -21,11 +21,19 @@ use sha1::{Digest, Sha1};
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio::net::TcpListener;
 
-fn local_ip() -> String {
-    UdpSocket::bind("0.0.0.0:0")
-        .and_then(|s| s.connect("8.8.8.8:80").and_then(|_| s.local_addr()))
-        .map(|a| a.ip().to_string())
-        .unwrap_or_else(|_| "localhost".into())
+fn local_ip(iface: Option<&str>) -> String {
+    match iface {
+        Some(name) => if_addrs::get_if_addrs()
+            .ok()
+            .and_then(|addrs| {
+                addrs.into_iter().find(|a| a.name == name && a.ip().is_ipv4()).map(|a| a.ip().to_string())
+            }),
+        None => UdpSocket::bind("0.0.0.0:0")
+            .and_then(|s| s.connect("8.8.8.8:80").and_then(|_| s.local_addr()))
+            .ok()
+            .map(|a| a.ip().to_string()),
+    }
+    .unwrap_or_else(|| "localhost".into())
 }
 
 fn print_qr(url: &str) -> Result<(), Box<dyn Error>> {
@@ -140,20 +148,27 @@ async fn handle(
 #[derive(Parser)]
 #[command(about = "Use your phone to scroll")]
 struct Args {
+    /// Port to listen on
     #[arg(short, long, default_value_t = 12687)]
     port: u16,
 
+    /// Scroll sensitivity multiplier
     #[arg(short, long, default_value_t = 6.0)]
     sensitivity: f32,
 
+    /// Show QR code in terminal
     #[arg(short, long, num_args = 0..=1, default_missing_value = "true", default_value_t = false)]
     qr: bool,
+
+    /// Network interface to use for the displayed URL
+    #[arg(short, long)]
+    iface: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let url = format!("http://{}:{}", local_ip(), args.port);
+    let url = format!("http://{}:{}", local_ip(args.iface.as_deref()), args.port);
     if args.qr {
         print_qr(&url)?;
     }
