@@ -143,11 +143,11 @@ struct Args {
     #[arg(short, long, default_value_t = 12687)]
     port: u16,
 
-    #[arg(short, long, num_args = 0..=1, default_missing_value = "true", default_value_t = false)]
-    qr: bool,
-
     #[arg(short, long, default_value_t = 6.0)]
     sensitivity: f32,
+
+    #[arg(short, long, num_args = 0..=1, default_missing_value = "true", default_value_t = false)]
+    qr: bool,
 }
 
 #[tokio::main]
