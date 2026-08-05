@@ -33,6 +33,8 @@
         fs.onclick = () =>
             document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 
+        document.addEventListener("visibilitychange", () => document.hidden || location.reload());
+
         let ws;
         function connect() {
             ws = new WebSocket("ws://" + location.host + "/ws");
