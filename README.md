@@ -27,7 +27,7 @@ echo 'KERNEL=="uinput", MODE="0660", GROUP="uinput", OPTIONS+="static_node=uinpu
 | sudo tee /etc/udev/rules.d/60-scroll.rules
 ```
 
-Then reboot, or run:
+Then, either reboot, or run:
 
 ```sh
 sudo udevadm control --reload
